@@ -44,8 +44,7 @@ BT1_tst:
     JSR sub_a_b     ;a BT1 lenyomása esetén végrehajtandó szubrutin
     JNZ No_sub_err     ;ha nem hibás az eredmény, ugrunk
     ;error beállítása
-    MOV r7, #0xFF
-    MOV r6, #0xFF
+    MOV r6, #0xEE
     JSR basic_display
     JMP BT2_tst
 No_sub_err:
@@ -63,8 +62,7 @@ BT3_tst:
     JSR div_a_b     ;a BT3 lenyomása esetén végrehajtandó szubrutin
     JNZ No_div_err
     ;error beállítása
-    MOV r7, #0xFF
-    MOV r6, #0xFF
+    MOV r6, #0xEE
     JSR basic_display
     JMP main
 No_div_err:
