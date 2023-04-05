@@ -32,6 +32,14 @@ reset: jmp main
 
 ISR:
     MOV r15, TS ;IT törlése
+    ;TST r8, #0x30
+    ;JZ test_error_IT
+    ;MOV r15, #0x00  ;digit tiltása
+    ;MOV DIG0, r15
+    ;MOV r15, #0x00  ;digit tiltása
+    ;MOV DIG1, r15
+    ;JMP IT_END
+;test_error_IT:
     TST r4, #0x01
     JZ IT_END
     MOV r15, DIG0 ;LD beolvasása
@@ -59,13 +67,15 @@ IT_END:
 main:
     MOV r4, #0x00
     MOV r0, #122
+    MOV r6, #0x00
+    MOV r7, #0x00
+    MOV r8, #0x00   ;minden ég és nincs dp alapesetben
     MOV TR, r0 ;16e6/(65536*122) -> kb. 0,5 sec
     MOV r0, #TC_INI
     MOV TC, r0 ;Timer inicializálása
     MOV r0, TS ;esetleges jelzés törlése
     STI ;globális IT engedélyezés
 loop:
-    MOV r8, #0x00   ;minden ég és nincs dp alapesetben
     ;a operandus kinyerése
     MOV r0, SW
     MOV r1, r0
@@ -80,41 +90,48 @@ loop:
     CMP r0, #10
     JC a_ok
     MOV r0, #0x0E
-    OR r4, #0x01    ;error beállítás
-    MOV r6, #0xEE
+    OR r8, #0b00110000
+    JSR set_operands
+    JSR basic_display
+    JMP loop
 a_ok:
     CMP r1, #10
     JC b_ok
     MOV r1, #0x0E
-    OR r4, #0x01    ;error beállítás
-    MOV r6, #0xEE
-b_ok:
+    OR r8, #0b00110000
     JSR set_operands
     JSR basic_display
-    
+    JMP loop
+b_ok:
+    JSR set_operands
+    JSR basic_display   
 BT0_tst:
     TST r2, #BT0    ;BT0 lenyomásának tesztelése (Z=0, ha lenyomták)
     JZ BT1_tst      ;következo BT tesztelése, ha nincs BT0 lenyomás
     JSR add_a_b     ;a BT0 lenyomása esetén végrehajtandó szubrutin
-    JSR set_operands
+    MOV r4, #0x00
+    MOV r8, #0x00   ;minden ég és nincs dp
     JSR basic_display
 BT1_tst:
     TST r2, #BT1    ;BT1 lenyomásának tesztelése (Z=0, ha lenyomták)
     JZ BT2_tst      ;következo BT tesztelése, ha nincs BT0 lenyomás
     JSR sub_a_b     ;a BT1 lenyomása esetén végrehajtandó szubrutin
+    MOV r8, #0x00   ;minden ég és nincs dp
     JNZ No_sub_err     ;ha nem hibás az eredmény, ugrunk
     ;error beállítása
     MOV r6, #0xEE
     JSR basic_display
+    MOV r4, #0x01
     JMP BT2_tst
 No_sub_err:
-    JSR set_operands
+    MOV r4, #0x00
     JSR basic_display
 BT2_tst:
     TST r2, #BT2    ;BT2 lenyomásának tesztelése (Z=0, ha lenyomták)
     JZ BT3_tst      ;következo BT tesztelése, ha nincs BT0 lenyomás
     JSR mul_a_b     ;a BT2 lenyomása esetén végrehajtandó szubrutin
-    JSR set_operands
+    MOV r4, #0x00
+    MOV r8, #0x00   ;minden ég és nincs dp
     JSR basic_display
 BT3_tst:
     TST r2, #BT3    ;BT3 lenyomásának tesztelése (Z=0, ha lenyomták)
@@ -123,9 +140,12 @@ BT3_tst:
     JNZ No_div_err
     ;error beállítása
     MOV r6, #0xEE
+    MOV r8, #0x00   ;minden ég és nincs dp
     JSR basic_display
+    MOV r4, #0x01
     JMP loop
 No_div_err:
+    MOV r4, #0x00
     MOV r8, #0x02   ;tizedespont
     JSR set_operands
     JSR basic_display
@@ -206,44 +226,7 @@ ret_div:
     
 ;kijelzi az r7-r6 számokat a 7szegmenses kijelzõn    
 basic_display:
-    TST r4, #0x01
-    JNZ RTS_basic_display
     ;r7 dig3|dig2  r6 dig1|dig0 r8 blank|dp
-    ;DIG0 kiírása
-    TST r8, #0x10   ;blank tesztelése
-    JNZ DIG0_blank  ;ugrunk, ha üres a digit
-    MOV r9, r6      ;dig0 mozgatása
-    AND r9, #0x0F   ;maszkolás, megkapjuk a dig0 számot
-    ADD r9, #sgtbl  ;szegmens logika
-    MOV r9, (r9)
-    TST r8, #0x01   ;tizedespont tesztelése
-    JZ load_DIG0    ;ugrunk, ha nem kell állítani
-    OR r9, #0x80    ;tizedespont beállítása
-load_DIG0:
-    MOV DIG0, r9    ;szegmensek beállítása
-    JMP DIG1_logic
-DIG0_blank:
-    MOV r9, #0x00   ;üres szegmens
-    MOV DIG0, r9    ;szegmensek beállítása
-DIG1_logic:
-    ;DIG1 kiírása
-    TST r8, #0x20   ;blank tesztelése
-    JNZ DIG1_blank  ;ugrunk, ha üres a digit
-    MOV r9, r6      ;dig1 mozgatása
-    AND r9, #0xF0   ;maszkolás, megkapjuk a dig1 számot
-    SWP r9          ;dig1 felsõ 4 bitrõl alsó 4 bitre konvertálása
-    ADD r9, #sgtbl  ;szegmens logika
-    MOV r9, (r9)
-    TST r8, #0x02   ;tizedespont tesztelése
-    JZ load_DIG1    ;ugrunk, ha nem kell állítani
-    OR r9, #0x80    ;tizedespont beállítása
-load_DIG1:
-    MOV DIG1, r9    ;szegmensek beállítása
-    JMP DIG2_logic
-DIG1_blank:
-    MOV r9, #0x00   ;üres szegmens
-    MOV DIG1, r9    ;szegmensek beállítása
-DIG2_logic:
     ;DIG2 kiírása
     TST r8, #0x40   ;blank tesztelése
     JNZ DIG2_blank  ;ugrunk, ha üres a digit
@@ -274,14 +257,55 @@ DIG3_logic:
     OR r9, #0x80    ;tizedespont beállítása
 load_DIG3:
     MOV DIG3, r9    ;szegmensek beállítása
-    RTS
+    JMP test_error_basic_display
 DIG3_blank:
     MOV r9, #0x00   ;üres szegmens
     MOV DIG3, r9    ;szegmensek beállítása
+test_error_basic_display:
+    TST r4, #0x01
+    JNZ RTS_basic_display
+    ;DIG0 kiírása
+DIG0_logic:
+    TST r8, #0x10   ;blank tesztelése
+    JNZ DIG0_blank  ;ugrunk, ha üres a digit
+    MOV r9, r6      ;dig0 mozgatása
+    AND r9, #0x0F   ;maszkolás, megkapjuk a dig0 számot
+    ADD r9, #sgtbl  ;szegmens logika
+    MOV r9, (r9)
+    TST r8, #0x01   ;tizedespont tesztelése
+    JZ load_DIG0    ;ugrunk, ha nem kell állítani
+    OR r9, #0x80    ;tizedespont beállítása
+load_DIG0:
+    MOV DIG0, r9    ;szegmensek beállítása
+    JMP DIG1_logic
+DIG0_blank:
+    MOV r9, #0x00   ;üres szegmens
+    MOV DIG0, r9    ;szegmensek beállítása
+DIG1_logic:
+    ;DIG1 kiírása
+    TST r8, #0x20   ;blank tesztelése
+    JNZ DIG1_blank  ;ugrunk, ha üres a digit
+    MOV r9, r6      ;dig1 mozgatása
+    AND r9, #0xF0   ;maszkolás, megkapjuk a dig1 számot
+    SWP r9          ;dig1 felsõ 4 bitrõl alsó 4 bitre konvertálása
+    ADD r9, #sgtbl  ;szegmens logika
+    MOV r9, (r9)
+    TST r8, #0x02   ;tizedespont tesztelése
+    JZ load_DIG1    ;ugrunk, ha nem kell állítani
+    OR r9, #0x80    ;tizedespont beállítása
+load_DIG1:
+    MOV DIG1, r9    ;szegmensek beállítása
+    RTS
+DIG1_blank:
+    MOV r9, #0x00   ;üres szegmens
+    MOV DIG1, r9    ;szegmensek beállítása
 RTS_basic_display:
     RTS
 
-
+Bin_div_a_b:
+;r6 osztandó, r7 osztó
+        
+    RTS
 
 
 

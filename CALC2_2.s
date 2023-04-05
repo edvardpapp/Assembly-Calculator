@@ -35,7 +35,7 @@ BT2_tst:
 BT3_tst:
     TST r2, #BT3    ;BT3 lenyomásának tesztelése (Z=0, ha lenyomták)
     JZ main         ;újratesztelés indítása
-    JSR div_a_b     ;a BT3 lenyomása esetén végrehajtandó szubrutin
+    JSR bin_div_a_b     ;a BT3 lenyomása esetén végrehajtandó szubrutin
     JNZ main
 error:
     MOV r8, #0xFF   
@@ -104,5 +104,34 @@ div_cycle_end:
     MOV LD, r8      ;eredmény kiírása ledekre
     ADD r6, #1      ;a = 0 esetén ne legyen Z flag
 ret_div:
+    RTS
+    
+bin_div_a_b:
+    MOV r6, r0      ;a operandus elmentése
+    MOV r7, r1      ;b operandus elmentése
+    MOV r8, #0      ;segédregiszter
+    MOV r9, #0      ;eredmény
+    MOV r10, #7     ;ciklusszámláló
+bin_div_loop:
+    SR0 r7
+    RRC r8
+    TST r7, r7
+    JZ need_sub
+    SL0 r9
+    JMP ret_bin_div
+need_sub:
+    SUB r6, r8
+    JC shift_0
+    SL1 r9
+    JMP shift_1
+shift_0:
+    SL0 r9
+shift_1:
+    ADD r6, r8
+    SUB r10, #1
+    JNZ bin_div_loop
+ret_bin_div:
+    SUB r6, r8
+    MOV LD, r9
     RTS
     

@@ -22,6 +22,7 @@ CODE
 main:
     MOV r8, #0x00   ;minden ég és nincs dp alapesetben
     ;a operandus kinyerése
+loop:    
     MOV r0, SW
     MOV r1, r0
     AND r0, #0xF0   
@@ -32,10 +33,13 @@ main:
     MOV r3, BTIF    ;megváltozott nyomógombnál a megfelelo BTIF bit 1-lesz
     MOV BTIF, r3    ;jelzés(ek) törlése (az törlodik, ahova 1-et írunk!)
     AND r2, r3      ;azon bit lesz 1, amelyhez tartozó gombot lenyomták
+    JSR set_operands
+    JSR basic_display
 BT0_tst:
     TST r2, #BT0    ;BT0 lenyomásának tesztelése (Z=0, ha lenyomták)
     JZ BT1_tst      ;következo BT tesztelése, ha nincs BT0 lenyomás
     JSR add_a_b     ;a BT0 lenyomása esetén végrehajtandó szubrutin
+    MOV r8, #0x00
     JSR set_operands
     JSR basic_display
 BT1_tst:
@@ -45,6 +49,8 @@ BT1_tst:
     JNZ No_sub_err     ;ha nem hibás az eredmény, ugrunk
     ;error beállítása
     MOV r6, #0xEE
+    JSR set_operands
+    MOV r8, #0x00
     JSR basic_display
     JMP BT2_tst
 No_sub_err:
@@ -54,22 +60,24 @@ BT2_tst:
     TST r2, #BT2    ;BT2 lenyomásának tesztelése (Z=0, ha lenyomták)
     JZ BT3_tst      ;következo BT tesztelése, ha nincs BT0 lenyomás
     JSR mul_a_b     ;a BT2 lenyomása esetén végrehajtandó szubrutin
+    MOV r8, #0x00
     JSR set_operands
     JSR basic_display
 BT3_tst:
     TST r2, #BT3    ;BT3 lenyomásának tesztelése (Z=0, ha lenyomták)
-    JZ main
+    JZ loop
     JSR div_a_b     ;a BT3 lenyomása esetén végrehajtandó szubrutin
     JNZ No_div_err
     ;error beállítása
     MOV r6, #0xEE
+    JSR set_operands
     JSR basic_display
-    JMP main
+    JMP loop
 No_div_err:
     MOV r8, #0x02   ;tizedespont
     JSR set_operands
     JSR basic_display
-    JMP main
+    JMP loop
 
 
 ;betölti a és b operandusokat az r7 regiszterbe
