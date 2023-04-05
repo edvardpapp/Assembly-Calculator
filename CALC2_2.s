@@ -85,53 +85,39 @@ no_add:
     MOV LD, r10     ;eredmény kiiírása leddekre
     RTS
     
-    
-div_a_b:
-    MOV r6, r0      ;a operandus elmentése
-    MOV r7, r1      ;b operandus elmentése
-    OR r7, r7
-    JZ ret_div      ;0 volt a b operandus
-    AND r8, #0x00   ;eredmény
-div_cycle:
-    SUB r6, r7
-    JC div_cycle_end
-    ADD r8, #1
-    JMP div_cycle
-div_cycle_end:
-    ADD r6, r7      ;div_cycle elrontja r6-t az utolsó kivonásnál, vissza kell állítani
-    SWP r8
-    OR r8, r6
-    MOV LD, r8      ;eredmény kiírása ledekre
-    ADD r6, #1      ;a = 0 esetén ne legyen Z flag
-ret_div:
-    RTS
-    
 bin_div_a_b:
     MOV r6, r0      ;a operandus elmentése
     MOV r7, r1      ;b operandus elmentése
+    OR r7, r7
+    JZ ret_bin_div      ;0 volt a b operandus
     MOV r8, #0      ;segédregiszter
     MOV r9, #0      ;eredmény
-    MOV r10, #7     ;ciklusszámláló
+    MOV r10, #8     ;ciklusszámláló
 bin_div_loop:
     SR0 r7
-    RRC r8
+    RRC r8          ;regiszterpár forgatása
     TST r7, r7
-    JZ need_sub
+    JZ need_sub     ;felso 8 bit 0 esetén kivonással ellenorizni
     SL0 r9
-    JMP ret_bin_div
+    JMP bin_div_end
 need_sub:
-    SUB r6, r8
+    SUB r6, r8      ;betöltött digit ellenorzése C flaggel
     JC shift_0
     SL1 r9
-    JMP shift_1
+    JMP bin_div_end
 shift_0:
     SL0 r9
-shift_1:
-    ADD r6, r8
+    ADD r6, r8      ;ha 0 a betöltött digit, akkor vissza kell adni az osztót
+bin_div_end:    
     SUB r10, #1
     JNZ bin_div_loop
-ret_bin_div:
-    SUB r6, r8
+    SL0 r9          ;2x8 bites értékek 8 bitbe kimentése 
+    SL0 r9
+    SL0 r9
+    SL0 r9
+    OR r9, r6
     MOV LD, r9
+    ADD r10, #1     ;ne legyen beállítva a Z flag 0.0 eredmény esetén
+ret_bin_div:
     RTS
     
