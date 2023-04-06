@@ -58,10 +58,10 @@ sub_a_b:
     SUB r6, r7      ;a-b
     JNC no_error    ;nincs elojelváltás
     AND r6, #0x00   ;Z flag beállítás
-    JZ ret_sub
+    RTS
 no_error:
     MOV LD, r6      ;eredmény kiírása ledekre
-ret_sub:
+    ADD r6, #0x01
     RTS
     
 mul_a_b:
@@ -89,7 +89,7 @@ bin_div_a_b:
     MOV r6, r0      ;a operandus elmentése
     MOV r7, r1      ;b operandus elmentése
     OR r7, r7
-    JZ ret_bin_div      ;0 volt a b operandus
+    JZ ret_bin_div  ;0 volt a b operandus
     MOV r8, #0      ;segédregiszter
     MOV r9, #0      ;eredmény
     MOV r10, #8     ;ciklusszámláló
