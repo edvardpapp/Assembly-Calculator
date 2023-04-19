@@ -7,10 +7,7 @@ DEF DIG1 0x91
 DEF DIG2 0x92
 DEF DIG3 0x93
 
-DEF TC_INI 0b11110011 ;IT en., 65536-os elõosztás, ismétléses, Timer en.
-DEF TIT 0b10000000
 DEF RXNE 0b00000100
-DEF TXNF 0b00000010
 
 DEF BASE_STATE  0
 DEF OPA         1
@@ -47,7 +44,7 @@ reset: jmp main
 ;a két digit kezelhetõ egységesen, hisz mindkettõre E-t kell kiírni illetve tiltani kell
 ISR:
     MOV r15, UD     ;jött adat beolvasása
-    MOV r5, #NEW_DATA   ;jelezzük, hogy érvényes adat jött
+    MOV r5, #NEW_DATA   ;jelezzük, hogy jött adat 
     MOV r14, r12    ;elmentjük az elõzõ state-t
     CMP r15, #ESC   ;ha ESC jött, akkor a STATE alapállapot, 0 és visszatérünk
     JNZ JUMP_STATE
@@ -83,7 +80,7 @@ OP_A:
     JZ SET_OPERATION
     JMP RTI_ISR
 SET_OPERATION:
-;ide akkor jutunk, ha az elõzõ adat az A operandus volt és most mûvelet jött
+    ;ide akkor jutunk, ha az elõzõ adat az A operandus volt és most mûvelet jött
     MOV r12, #OPERATION
     JMP RTI_ISR
 STATE_OPERATION:
@@ -278,10 +275,7 @@ shift_0:
 div_end:    
     SUB r10, #1
     JNZ div_loop
-    SL0 r9          ;2x8 bites értékek 8 bitbe kimentése 
-    SL0 r9
-    SL0 r9
-    SL0 r9
+    SWP r9          ;2x8 bites értékek 8 bitbe kimentése 
     OR r9, r6
     MOV r6, r9
     ADD r10, #1     ;ne legyen beállítva a Z flag 0.0 eredmény esetén
