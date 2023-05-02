@@ -30,51 +30,36 @@ sgtbl: DB 0x3f, 0x06, 0x5b, 0x4f, 0x66, 0x6d, 0x7d, 0x07, 0x7f, 0x6f, 0x77, 0x7c
 CODE
 reset: jmp main
 
+;a két digit kezelhetõ egységesen, hisz mindkettõre E-t kell kiírni illetve tiltani kell
 ISR:
     MOV r15, TS ;IT törlése
-    ;TST r8, #0x30
-    ;JZ test_error_IT
-    ;MOV r15, #0x00  ;digit tiltása
-    ;MOV DIG0, r15
-    ;MOV r15, #0x00  ;digit tiltása
-    ;MOV DIG1, r15
-    ;JMP IT_END
-;test_error_IT:
     TST r4, #0x01
     JZ IT_END
-    MOV r15, DIG0 ;LD beolvasása
+    MOV r15, DIG0   ;digit beolvasása
     TST r15, #0xFF  ;teszt, hogy nulla volt-e
-    JZ DIG0_zero     
-    MOV r15, #0x00  ;digit tiltása
+    JZ DIG_zero     
+    MOV r15, #0x00  ;digitek tiltása, ha égett
     MOV DIG0, r15
-    JMP test_DIG1
-DIG0_zero:
-    MOV r15, #0x79  ;E kiírása
-    MOV DIG0, r15
-test_DIG1:
-    MOV r15, DIG1 ;LD beolvasása
-    TST r15, #0xFF  ;teszt, hogy nulla volt-e
-    JZ DIG1_zero
-    MOV r15, #0x00  ;digit tiltása
     MOV DIG1, r15
-    JMP IT_END
-DIG1_zero:
-    MOV r15, #0x79  ;E kijelzése
+    RTI
+DIG_zero:
+    MOV r15, #0x79  ;E kiírása, ha tiltva voltak
+    MOV DIG0, r15
     MOV DIG1, r15
 IT_END:
     RTI ;visszatérés az IT-bõl
 
 main:
-    MOV r4, #0x00
-    MOV r0, #122
-    MOV r6, #0x00
-    MOV r7, #0x00
+    ;inicializálások
+    MOV r4, #0x00   ;alapesetben nincs error
+    MOV r6, #0x00   ;a kimenet nulla
     MOV r8, #0x00   ;minden ég és nincs dp alapesetben
-    MOV TR, r0 ;16e6/(65536*122) -> kb. 0,5 sec
+    MOV r0, #122    ;Timer osztás konstans
+    MOV TR, r0      ;16e6/(65536*122) -> kb. 0,5 sec
     MOV r0, #TC_INI
-    MOV TC, r0 ;Timer inicializálása
-    MOV r0, TS ;esetleges jelzés törlése
-    STI ;globális IT engedélyezés
+    MOV TC, r0      ;Timer inicializálása
+    MOV r0, TS      ;esetleges jelzés törlése
+    STI             ;globális IT engedélyezés
 loop:
     ;a operandus kinyerése
     MOV r0, SW
@@ -83,71 +68,75 @@ loop:
     SWP r0          ;r0 a operandus
     ;b operandus kinyerése
     AND r1, #0x0F   ;r1 b operandus
+    ;operadnusok ellenõrzése
+    CMP r0, #10     ;a < 10?
+    JC a_ok
+    MOV r0, #0x0E   ;ha a>10 E-t kell kiírni helyette
+    OR r8, #0x30    ;alsó 2 digitet tiltjuk
+    JSR set_operands
+    JSR basic_display
+    JMP loop        ;nem végeztetünk mûveletet ha hibás a bemenet
+a_ok:
+    CMP r1, #10     ;b < 10?
+    JC b_ok
+    MOV r1, #0x0E   ;ha b>10 E-t kell kiírni helyette
+    OR r8, #0x30    ;alsó 2 digitet tiltjuk
+    JSR set_operands
+    JSR basic_display
+    JMP loop        ;nem végeztetünk mûveletet ha hibás a bemenet
+b_ok:
+    JSR set_operands
+    JSR basic_display
     MOV r2, BT      ;nyomógombok beolvasása
     MOV r3, BTIF    ;megváltozott nyomógombnál a megfelelo BTIF bit 1-lesz
     MOV BTIF, r3    ;jelzés(ek) törlése (az törlodik, ahova 1-et írunk!)
     AND r2, r3      ;azon bit lesz 1, amelyhez tartozó gombot lenyomták
-    CMP r0, #10
-    JC a_ok
-    MOV r0, #0x0E
-    OR r8, #0b00110000
-    JSR set_operands
-    JSR basic_display
-    JMP loop
-a_ok:
-    CMP r1, #10
-    JC b_ok
-    MOV r1, #0x0E
-    OR r8, #0b00110000
-    JSR set_operands
-    JSR basic_display
-    JMP loop
-b_ok:
-    JSR set_operands
-    JSR basic_display   
 BT0_tst:
     TST r2, #BT0    ;BT0 lenyomásának tesztelése (Z=0, ha lenyomták)
     JZ BT1_tst      ;következo BT tesztelése, ha nincs BT0 lenyomás
-    JSR add_a_b     ;a BT0 lenyomása esetén végrehajtandó szubrutin
-    MOV r4, #0x00
+    MOV r6, r0      ;a+b, eredmény r6-ban
+    ADD r6, r1
+    MOV r3, r7      ;eredmény bcd konvertálása
+    JSR bin_2_BCD
+    MOV r7, r3
+    MOV r4, #0x00   ;biztosan nincs error
     MOV r8, #0x00   ;minden ég és nincs dp
-    JSR basic_display
 BT1_tst:
     TST r2, #BT1    ;BT1 lenyomásának tesztelése (Z=0, ha lenyomták)
     JZ BT2_tst      ;következo BT tesztelése, ha nincs BT0 lenyomás
-    JSR sub_a_b     ;a BT1 lenyomása esetén végrehajtandó szubrutin
+    MOV r6, r0      ;a-b, eredmény r6-ban
+    SUB r6, r1
     MOV r8, #0x00   ;minden ég és nincs dp
-    JNZ No_sub_err     ;ha nem hibás az eredmény, ugrunk
-    ;error beállítása
-    MOV r6, #0xEE
-    JSR basic_display
-    MOV r4, #0x01
+    JNC No_sub_err  ;ha nem hibás az eredmény, ugrunk
+    MOV r4, #0x01   ;error beállítása
     JMP BT2_tst
 No_sub_err:
-    MOV r4, #0x00
-    JSR basic_display
+    MOV r4, #0x00   ;nincs error
 BT2_tst:
     TST r2, #BT2    ;BT2 lenyomásának tesztelése (Z=0, ha lenyomták)
     JZ BT3_tst      ;következo BT tesztelése, ha nincs BT0 lenyomás
+    MOV r6, r0      ;a operandus átadása
+    MOV r7, r1      ;b operandus átadása
     JSR mul_a_b     ;a BT2 lenyomása esetén végrehajtandó szubrutin
-    MOV r4, #0x00
+    MOV r3, r7      ;eredmény bcd konvertálása
+    JSR bin_2_BCD
+    MOV r7, r3
+    MOV r4, #0x00   ;nincs error
     MOV r8, #0x00   ;minden ég és nincs dp
-    JSR basic_display
 BT3_tst:
     TST r2, #BT3    ;BT3 lenyomásának tesztelése (Z=0, ha lenyomták)
-    JZ loop
-    JSR bin_div_a_b     ;a BT3 lenyomása esetén végrehajtandó szubrutin
+    JZ Main_display
+    MOV r6, r0      ;a operandus átadása
+    MOV r7, r1      ;b operandus átadása
+    JSR div_a_b     ;a BT3 lenyomása esetén végrehajtandó szubrutin
     JNZ No_div_err
-    ;error beállítása
-    MOV r6, #0xEE
+    MOV r4, #0x01   ;error beállítása
     MOV r8, #0x00   ;minden ég és nincs dp
-    JSR basic_display
-    MOV r4, #0x01
-    JMP loop
+    JMP Main_display
 No_div_err:
-    MOV r4, #0x00
+    MOV r4, #0x00   ;nincs error
     MOV r8, #0x02   ;tizedespont
-    JSR set_operands
+Main_display:
     JSR basic_display
     JMP loop
 
@@ -158,33 +147,10 @@ set_operands:
     SWP r7
     OR r7, r1
     RTS
-    
-    
-;eredmény r6-ban
-add_a_b:
-    MOV r6, r0      ;a operandus elmentése
-    MOV r7, r1      ;b operandus elmentése
-    ADD r6, r7      ;a és b operandus összeadása
-    RTS
-    
-    
-;eredmény r6-ban   
-sub_a_b:
-    MOV r6, r0      ;a operandus elmentése
-    MOV r7, r1      ;b operandus elmentése
-    SUB r6, r7      ;a-b
-    JNC no_error_sub;nincs elojelváltás
-    AND r6, #0x00   ;Z flag beállítás
-    RTS
-no_error_sub:
-    ADD r7, #0x01
-    RTS
-
-
+ 
+ 
 ;eredmény r6-ban
 mul_a_b:
-    MOV r6, r0      ;a operandus elmentése
-    MOV r7, r1      ;b operandus elmentése
     AND r10,#0      ;eredmény
     MOV r9, #0x01   ;mask
     MOV r8, #3      ;iterátor
@@ -204,32 +170,32 @@ no_add:
     RTS
     
 ;eredmény r6-ban egész rész|maradék 4-4 biten
-bin_div_a_b:
-    MOV r6, r0      ;a operandus elmentése
-    MOV r7, r1      ;b operandus elmentése
+;r6/r7 mûvelet
+;használja: r6, r7, r8 ,r9, r10
+div_a_b:
     OR r7, r7
-    JZ ret_bin_div      ;0 volt a b operandus
+    JZ ret_div      ;0 volt a b operandus
     MOV r8, #0      ;segédregiszter
     MOV r9, #0      ;eredmény
     MOV r10, #8     ;ciklusszámláló
-bin_div_loop:
+div_loop:
     SR0 r7
     RRC r8          ;regiszterpár forgatása
     TST r7, r7
     JZ need_sub     ;felso 8 bit 0 esetén kivonással ellenorizni
     SL0 r9
-    JMP bin_div_end
+    JMP div_end
 need_sub:
     SUB r6, r8      ;betöltött digit ellenorzése C flaggel
     JC shift_0
     SL1 r9
-    JMP bin_div_end
+    JMP div_end
 shift_0:
     SL0 r9
     ADD r6, r8      ;ha 0 a betöltött digit, akkor vissza kell adni az osztót
-bin_div_end:    
+div_end:    
     SUB r10, #1
-    JNZ bin_div_loop
+    JNZ div_loop
     SL0 r9          ;2x8 bites értékek 8 bitbe kimentése 
     SL0 r9
     SL0 r9
@@ -237,10 +203,11 @@ bin_div_end:
     OR r9, r6
     MOV r6, r9
     ADD r10, #1     ;ne legyen beállítva a Z flag 0.0 eredmény esetén
-ret_bin_div:
+ret_div:
     RTS
     
-;kijelzi az r7-r6 számokat a 7szegmenses kijelzõn    
+;kijelzi az r7-r6 számokat a 7szegmenses kijelzõn  
+;használja: r6, r7, r8, r9
 basic_display:
     ;r7 dig3|dig2  r6 dig1|dig0 r8 blank|dp
     ;DIG2 kiírása
@@ -318,10 +285,12 @@ DIG1_blank:
 RTS_basic_display:
     RTS
 
-Bin_div_a_b:
-;r6 osztandó, r7 osztó
-        
+
+;r6-ot átalakítja BCD-re
+;eredmény r6-ban
+;használja r6, r7, r8, r9, r10
+bin_2_BCD:
+    MOV r7, #10
+    JSR div_a_b
     RTS
-
-
 
