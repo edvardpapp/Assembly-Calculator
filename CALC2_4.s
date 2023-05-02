@@ -72,12 +72,13 @@ loop:
     CMP r0, #10     ;a < 10?
     JC a_ok
     MOV r0, #0x0E   ;ha a>10 E-t kell kiírni helyette
-    OR r8, #0x30    ;alsó 2 digitet tiltjuk
+    OR r8, #0x70    ;alsó 3 digitet tiltjuk
     JSR set_operands
     JSR basic_display
     JMP loop        ;nem végeztetünk mûveletet ha hibás a bemenet
 a_ok:
     CMP r1, #10     ;b < 10?
+    AND r8, #0xBF   ;b digit tiltásának kikapcsolása
     JC b_ok
     MOV r1, #0x0E   ;ha b>10 E-t kell kiírni helyette
     OR r8, #0x30    ;alsó 2 digitet tiltjuk
@@ -214,7 +215,7 @@ basic_display:
     TST r8, #0x40   ;blank tesztelése
     JNZ DIG2_blank  ;ugrunk, ha üres a digit
     MOV r9, r7      ;dig0 mozgatása
-    AND r9, #0x0F   ;maszkolás, megkapjuk a dig0 számot
+    AND r9, #0x0F   ;maszkolás, megkapjuk a dig2 számot
     ADD r9, #sgtbl  ;szegmens logika
     MOV r9, (r9)
     TST r8, #0x04   ;tizedespont tesztelése
@@ -231,7 +232,7 @@ DIG3_logic:
     TST r8, #0x80   ;blank tesztelése
     JNZ DIG3_blank  ;ugrunk, ha üres a digit
     MOV r9, r7      ;dig1 mozgatása
-    AND r9, #0xF0   ;maszkolás, megkapjuk a dig1 számot
+    AND r9, #0xF0   ;maszkolás, megkapjuk a dig3 számot
     SWP r9          ;dig1 felsõ 4 bitrõl alsó 4 bitre konvertálása
     ADD r9, #sgtbl  ;szegmens logika
     MOV r9, (r9)

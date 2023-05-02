@@ -210,7 +210,7 @@ DIG2_logic:
     TST r8, #0x40   ;blank tesztelése
     JNZ DIG2_blank  ;ugrunk, ha üres a digit
     MOV r9, r7      ;dig0 mozgatása
-    AND r9, #0x0F   ;maszkolás, megkapjuk a dig0 számot
+    AND r9, #0x0F   ;maszkolás, megkapjuk a dig2 számot
     ADD r9, #sgtbl  ;szegmens logika
     MOV r9, (r9)
     TST r8, #0x04   ;tizedespont tesztelése
@@ -227,7 +227,7 @@ DIG3_logic:
     TST r8, #0x80   ;blank tesztelése
     JNZ DIG3_blank  ;ugrunk, ha üres a digit
     MOV r9, r7      ;dig1 mozgatása
-    AND r9, #0xF0   ;maszkolás, megkapjuk a dig1 számot
+    AND r9, #0xF0   ;maszkolás, megkapjuk a dig3 számot
     SWP r9          ;dig1 felsõ 4 bitrõl alsó 4 bitre konvertálása
     ADD r9, #sgtbl  ;szegmens logika
     MOV r9, (r9)

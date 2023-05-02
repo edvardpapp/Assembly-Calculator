@@ -41,7 +41,6 @@ sgtbl: DB 0x3f, 0x06, 0x5b, 0x4f, 0x66, 0x6d, 0x7d, 0x07, 0x7f, 0x6f, 0x77, 0x7c
 CODE
 reset: jmp main
 
-;a két digit kezelhetõ egységesen, hisz mindkettõre E-t kell kiírni illetve tiltani kell
 ISR:
     MOV r15, UD     ;jött adat beolvasása
     MOV r5, #NEW_DATA   ;jelezzük, hogy jött adat 
@@ -290,7 +289,7 @@ basic_display:
     TST r8, #0x40   ;blank tesztelése
     JNZ DIG2_blank  ;ugrunk, ha üres a digit
     MOV r9, r7      ;dig0 mozgatása
-    AND r9, #0x0F   ;maszkolás, megkapjuk a dig0 számot
+    AND r9, #0x0F   ;maszkolás, megkapjuk a dig2 számot
     ADD r9, #sgtbl  ;szegmens logika
     MOV r9, (r9)
     TST r8, #0x04   ;tizedespont tesztelése
@@ -307,7 +306,7 @@ DIG3_logic:
     TST r8, #0x80   ;blank tesztelése
     JNZ DIG3_blank  ;ugrunk, ha üres a digit
     MOV r9, r7      ;dig1 mozgatása
-    AND r9, #0xF0   ;maszkolás, megkapjuk a dig1 számot
+    AND r9, #0xF0   ;maszkolás, megkapjuk a dig3 számot
     SWP r9          ;dig1 felsõ 4 bitrõl alsó 4 bitre konvertálása
     ADD r9, #sgtbl  ;szegmens logika
     MOV r9, (r9)
@@ -316,13 +315,10 @@ DIG3_logic:
     OR r9, #0x80    ;tizedespont beállítása
 load_DIG3:
     MOV DIG3, r9    ;szegmensek beállítása
-    JMP test_error_basic_display
+    JMP DIG0_logic
 DIG3_blank:
     MOV r9, #0x00   ;üres szegmens
     MOV DIG3, r9    ;szegmensek beállítása
-test_error_basic_display:
-    TST r4, #0x01
-    JNZ RTS_basic_display
     ;DIG0 kiírása
 DIG0_logic:
     TST r8, #0x10   ;blank tesztelése
